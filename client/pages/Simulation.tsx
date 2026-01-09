@@ -52,20 +52,20 @@ const Simulation: React.FC = () => {
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
         <header>
-          <h2 className="text-2xl font-bold text-primary-text tracking-tight">
+          <h2 className="text-2xl font-bold text-[#064E3B] tracking-tight">
             Traffic Simulator
           </h2>
-          <p className="text-muted text-sm mt-1">
+          <p className="text-[#64748B] text-sm mt-1">
             Stress test AI detection models by simulating live transaction traffic.
           </p>
         </header>
 
         {/* Control Panel */}
-        <div className="bg-surface border border-border rounded-2xl p-8 space-y-8">
+        <div className="bg-[#FFFFFF] border border-[#D1FAE5] rounded-2xl p-8 space-y-8">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 text-primary">
+            <div className="flex items-center gap-3 text-[#10B981]">
               <Activity size={22} />
-              <h3 className="text-lg font-bold text-primary-text">
+              <h3 className="text-lg font-bold text-[#064E3B]">
                 Simulation Core
               </h3>
             </div>
@@ -74,8 +74,8 @@ const Simulation: React.FC = () => {
               onClick={handleReset}
               disabled={isResetting || simulationActive}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold
-                text-muted hover:text-critical hover:bg-critical/10
-                border border-transparent hover:border-critical/20
+                text-[#64748B] hover:text-[#EF4444] hover:bg-[#EF4444]/10
+                border border-transparent hover:border-[#EF4444]/20
                 transition disabled:opacity-40"
             >
               <RefreshCcw
@@ -95,12 +95,12 @@ const Simulation: React.FC = () => {
               className={`flex flex-col items-center gap-4 p-6 rounded-2xl border transition group
                 ${
                   simulationActive
-                    ? 'bg-background border-border opacity-50 cursor-not-allowed'
-                    : 'bg-success/5 border-success/20 hover:border-success/40'
+                    ? 'bg-[#FFFFFF] border-[#D1FAE5] opacity-50 cursor-not-allowed'
+                    : 'bg-[#10B981]/5 border-[#10B981]/20 hover:border-[#10B981]/40'
                 }`}
             >
               <div
-                className={`p-4 rounded-full bg-success text-white shadow-lg shadow-success/20
+                className={`p-4 rounded-full bg-[#10B981] text-white shadow-lg shadow-[#10B981]/20
                   ${
                     !simulationActive &&
                     'group-hover:scale-110 transition-transform'
@@ -109,10 +109,10 @@ const Simulation: React.FC = () => {
                 <Play size={24} fill="currentColor" />
               </div>
               <div className="text-center">
-                <span className="block font-bold text-primary-text">
+                <span className="block font-bold text-[#064E3B]">
                   Normal Traffic
                 </span>
-                <span className="text-xs text-muted">
+                <span className="text-xs text-[#64748B]">
                   Add 1 APPROVED / 3s
                 </span>
               </div>
@@ -123,17 +123,17 @@ const Simulation: React.FC = () => {
               onClick={startFraudBurst}
               disabled={isResetting}
               className="flex flex-col items-center gap-4 p-6 rounded-2xl border
-                bg-critical/5 border-critical/20 hover:border-critical/40
+                bg-[#EF4444]/5 border-[#EF4444]/20 hover:border-[#EF4444]/40
                 transition group disabled:opacity-50"
             >
-              <div className="p-4 rounded-full bg-critical text-white shadow-lg shadow-critical/20 group-hover:scale-110 transition-transform">
+              <div className="p-4 rounded-full bg-[#EF4444] text-white shadow-lg shadow-[#EF4444]/20 group-hover:scale-110 transition-transform">
                 <Zap size={24} fill="currentColor" />
               </div>
               <div className="text-center">
-                <span className="block font-bold text-primary-text">
+                <span className="block font-bold text-[#064E3B]">
                   Fraud Burst
                 </span>
-                <span className="text-xs text-muted">
+                <span className="text-xs text-[#64748B]">
                   Inject 3 BLOCKED instantly
                 </span>
               </div>
@@ -146,12 +146,12 @@ const Simulation: React.FC = () => {
               className={`flex flex-col items-center gap-4 p-6 rounded-2xl border transition group
                 ${
                   !simulationActive
-                    ? 'bg-background border-border opacity-50 cursor-not-allowed'
-                    : 'bg-surface border-border hover:border-muted'
+                    ? 'bg-[#FFFFFF] border-[#D1FAE5] opacity-50 cursor-not-allowed'
+                    : 'bg-[#FFFFFF] border-[#D1FAE5] hover:border-[#64748B]'
                 }`}
             >
               <div
-                className={`p-4 rounded-full bg-muted text-primary-text
+                className={`p-4 rounded-full bg-[#64748B] text-white
                   ${
                     simulationActive &&
                     'group-hover:scale-110 transition-transform'
@@ -160,10 +160,10 @@ const Simulation: React.FC = () => {
                 <Square size={24} fill="currentColor" />
               </div>
               <div className="text-center">
-                <span className="block font-bold text-primary-text">
+                <span className="block font-bold text-[#064E3B]">
                   Emergency Stop
                 </span>
-                <span className="text-xs text-muted">
+                <span className="text-xs text-[#64748B]">
                   Clear all intervals
                 </span>
               </div>
@@ -171,10 +171,10 @@ const Simulation: React.FC = () => {
           </div>
 
           {/* Info */}
-          <div className="flex gap-3 bg-background border border-border rounded-xl p-4">
-            <Info className="text-primary shrink-0" size={18} />
-            <p className="text-xs text-muted leading-relaxed">
-              <span className="font-bold uppercase text-secondary-text">
+          <div className="flex gap-3 bg-[#F0F7F4] border border-[#D1FAE5] rounded-xl p-4">
+            <Info className="text-[#10B981] shrink-0" size={18} />
+            <p className="text-xs text-[#64748B] leading-relaxed">
+              <span className="font-bold uppercase text-[#064E3B]">
                 Pro Tip:
               </span>{' '}
               Use <strong>Fraud Burst</strong> to observe real-time KPI updates.
@@ -185,15 +185,15 @@ const Simulation: React.FC = () => {
         </div>
 
         {/* Event Log */}
-        <div className="bg-surface border border-border rounded-2xl overflow-hidden">
-          <div className="p-4 border-b border-border flex justify-between items-center bg-surface/50">
-            <h3 className="text-sm font-bold text-muted uppercase tracking-widest flex items-center gap-2">
+        <div className="bg-[#FFFFFF] border border-[#D1FAE5] rounded-2xl overflow-hidden">
+          <div className="p-4 border-b border-[#D1FAE5] flex justify-between items-center bg-[#FFFFFF]/50">
+            <h3 className="text-sm font-bold text-[#64748B] uppercase tracking-widest flex items-center gap-2">
               <History size={16} />
               Event Log (Latest 20)
             </h3>
             {simulationActive && (
-              <span className="text-[10px] text-success font-mono flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
+              <span className="text-[10px] text-[#10B981] font-mono flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-[#10B981] rounded-full animate-pulse" />
                 POLLING_ACTIVE
               </span>
             )}
@@ -203,26 +203,26 @@ const Simulation: React.FC = () => {
             {simulationLog.map(tx => (
               <div
                 key={tx.id}
-                className="flex gap-4 border-b border-border/40 pb-2 last:border-0
-                  hover:bg-border/30 px-2 py-1 transition"
+                className="flex gap-4 border-b border-[#D1FAE5]/40 pb-2 last:border-0
+                  hover:bg-[#D1FAE5]/30 px-2 py-1 transition"
               >
-                <span className="text-muted">
+                <span className="text-[#64748B]">
                   [{safeFormatTime(tx.timestamp)}]
                 </span>
-                <span className="text-primary">{tx.hashId}</span>
-                <span className="text-secondary-text flex-1">
+                <span className="text-[#10B981]">{tx.hashId}</span>
+                <span className="text-[#064E3B] flex-1">
                   {tx.entity} Transaction
                 </span>
-                <span className="text-primary-text">
+                <span className="text-[#064E3B]">
                   ₹{tx.amount.toLocaleString()}
                 </span>
                 <span
                   className={
                     tx.status === 'APPROVED'
-                      ? 'text-success'
+                      ? 'text-[#10B981]'
                       : tx.status === 'FLAGGED'
-                      ? 'text-warning'
-                      : 'text-critical'
+                      ? 'text-[#F59E0B]'
+                      : 'text-[#EF4444]'
                   }
                 >
                   {tx.status}
@@ -231,7 +231,7 @@ const Simulation: React.FC = () => {
             ))}
 
             {simulationLog.length === 0 && (
-              <div className="h-full flex items-center justify-center text-muted">
+              <div className="h-full flex items-center justify-center text-[#64748B]">
                 Log empty. Start a simulation to generate events.
               </div>
             )}
