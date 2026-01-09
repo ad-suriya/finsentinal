@@ -88,29 +88,9 @@ const EntityView: React.FC = () => {
                   <Users size={14} className="text-slate-500" />
                   <span className="text-[10px] text-slate-500 uppercase font-bold">Shared Data: ON</span>
                 </div>
-                <button className="text-indigo-400 hover:text-indigo-300 text-xs font-bold flex items-center gap-1 transition-colors">
-                  Detailed Audit <ExternalLink size={12} />
-                </button>
               </div>
             </div>
           ))}
-        </div>
-
-        <div className="bg-indigo-600/5 border border-indigo-600/10 p-8 rounded-2xl flex flex-col md:flex-row items-center gap-8">
-           <div className="shrink-0">
-             <div className="w-20 h-20 bg-indigo-600 rounded-full flex items-center justify-center border-4 border-slate-950 shadow-2xl shadow-indigo-600/20">
-               <ShieldCheck size={40} className="text-white" />
-             </div>
-           </div>
-           <div className="flex-1 space-y-2">
-             <h4 className="text-lg font-bold text-white">Privacy-First Data Sharing</h4>
-             <p className="text-slate-400 text-sm leading-relaxed">
-               VVFNT_<span className="text-indigo-500">02</span> uses Zero-Knowledge Proofs to verify transaction patterns between Bank A and Bank B without exposing raw customer data. Both entities benefit from a shared threat intelligence pool while maintaining 100% data sovereignty.
-             </p>
-           </div>
-           <button className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg whitespace-nowrap transition-colors">
-             Configure Protocols
-           </button>
         </div>
       </div>
     </Layout>
