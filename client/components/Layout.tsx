@@ -12,7 +12,6 @@ import {
   Globe
 } from 'lucide-react';
 import AIAssistant from './AIAssistant';
-import ApiMonitor from './ApiMonitor';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -65,8 +64,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           ))}
         </nav>
 
-        <ApiMonitor />
-
         <div className="p-4 border-t border-border">
           <div className="flex items-center gap-3 px-4 py-3 mb-4 bg-surface rounded-xl border border-border/50">
             <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center text-[10px] font-bold border border-border text-primary">
@@ -106,7 +103,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                <div className="w-px h-3 bg-muted/50"></div>
                <div className="flex items-center gap-2">
                  <Activity className="text-primary" size={10} />
-                 <span className="text-[9px] text-muted font-mono">LATENCY: 42ms</span>
                </div>
             </div>
           </div>
