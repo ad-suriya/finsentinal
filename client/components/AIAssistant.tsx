@@ -59,19 +59,22 @@ const AIAssistant: React.FC = () => {
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       {isOpen && (
-        <div className="w-80 md:w-96 h-[500px] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden mb-4 animate-in slide-in-from-bottom-4 duration-300">
+        <div className="w-80 md:w-96 h-[500px] bg-[#F0F7F4] border border-[#D1FAE5] rounded-2xl flex flex-col overflow-hidden mb-4 animate-in slide-in-from-bottom-4 duration-300">
 
           {/* Header */}
-          <div className="bg-slate-950 p-4 border-b border-slate-700 flex justify-between items-center">
+          <div className="bg-[#F0F7F4] p-4 border-b border-[#D1FAE5] flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <div className="p-2 bg-cyan-500/10 border border-cyan-400/30 rounded-lg">
-                <Bot size={18} className="text-cyan-400" />
+              <div className="p-2 bg-[#10B981]/10 border border-[#10B981]/30 rounded-lg">
+                <Bot size={18} className="text-[#10B981]" />
               </div>
-              <span className="text-xs font-semibold text-cyan-300 tracking-wider">
+              <span className="text-xs font-semibold text-[#064E3B] tracking-wide">
                 AI COMMAND INTERFACE
               </span>
             </div>
-            <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-cyan-300 transition">
+            <button
+              onClick={() => setIsOpen(false)}
+              className="text-[#64748B] hover:text-[#059669] transition"
+            >
               <X size={18} />
             </button>
           </div>
@@ -79,15 +82,15 @@ const AIAssistant: React.FC = () => {
           {/* Messages */}
           <div
             ref={scrollRef}
-            className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-900/80 custom-scrollbar"
+            className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#F0F7F4]"
           >
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div
                   className={`max-w-[85%] p-3 rounded-xl text-xs leading-relaxed ${
                     m.role === 'user'
-                      ? 'bg-cyan-500 text-slate-900 rounded-tr-none shadow-md'
-                      : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-tl-none'
+                      ? 'bg-[#10B981] text-white rounded-tr-none'
+                      : 'bg-white text-[#64748B] border border-[#D1FAE5] rounded-tl-none'
                   }`}
                 >
                   {m.text}
@@ -97,11 +100,11 @@ const AIAssistant: React.FC = () => {
 
             {isTyping && (
               <div className="flex justify-start">
-                <div className="bg-slate-800 border border-slate-700 p-3 rounded-xl rounded-tl-none">
+                <div className="bg-white border border-[#D1FAE5] p-3 rounded-xl rounded-tl-none">
                   <div className="flex gap-1">
-                    <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce" />
-                    <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce delay-150" />
-                    <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce delay-300" />
+                    <span className="w-1.5 h-1.5 bg-[#10B981] rounded-full animate-bounce" />
+                    <span className="w-1.5 h-1.5 bg-[#10B981] rounded-full animate-bounce delay-150" />
+                    <span className="w-1.5 h-1.5 bg-[#10B981] rounded-full animate-bounce delay-300" />
                   </div>
                 </div>
               </div>
@@ -109,18 +112,18 @@ const AIAssistant: React.FC = () => {
           </div>
 
           {/* Input */}
-          <form onSubmit={handleSend} className="p-4 bg-slate-950 border-t border-slate-700">
+          <form onSubmit={handleSend} className="p-4 bg-white border-t border-[#D1FAE5]">
             <div className="relative">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Query intelligence core..."
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 pl-4 pr-10 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-400 placeholder:text-slate-500"
+                className="w-full bg-white border border-[#D1FAE5] rounded-xl py-2 pl-4 pr-10 text-xs text-[#064E3B] focus:outline-none focus:ring-1 focus:ring-[#10B981] placeholder:text-[#94A3B8]"
               />
               <button
                 type="submit"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-cyan-400 hover:text-cyan-300 transition"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[#10B981] hover:text-[#059669] transition"
               >
                 <Send size={16} />
               </button>
@@ -132,10 +135,10 @@ const AIAssistant: React.FC = () => {
       {/* Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-400 text-slate-900 px-4 py-3 rounded-full shadow-lg transition-all hover:scale-105 active:scale-95"
+        className="flex items-center gap-2 bg-[#10B981] hover:bg-[#059669] text-white px-4 py-3 rounded-full transition-all active:scale-95"
       >
         {isOpen ? <ChevronDown size={20} /> : <Bot size={20} />}
-        <span className="text-sm font-bold pr-1">
+        <span className="text-sm font-semibold pr-1">
           {isOpen ? 'Close Link' : 'Open AI Link'}
         </span>
         {!isOpen && <Sparkles size={14} className="animate-pulse" />}
