@@ -8,9 +8,9 @@ interface StatusBadgeProps {
 
 const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
   const styles = {
-    APPROVED: "text-success bg-success/10 border-success/20",
-    FLAGGED: "text-warning bg-warning/10 border-warning/20",
-    BLOCKED: "text-critical bg-critical/10 border-critical/20",
+    APPROVED: 'text-[#10B981] bg-[#10B981]/10 border-[#10B981]/20',
+    FLAGGED: 'text-[#64748B] bg-[#64748B]/10 border-[#64748B]/20',
+    BLOCKED: 'text-[#EF4444] bg-[#EF4444]/10 border-[#EF4444]/20',
   };
 
   return (
