@@ -32,16 +32,17 @@ const Alerts: React.FC = () => {
         initial="hidden"
         animate="visible"
       >
+        {/* Header */}
         <motion.header
           variants={item}
           className="flex justify-between items-end"
         >
           <div>
-            <h2 className="text-2xl font-semibold text-slate-100 tracking-tight flex items-center gap-3">
-              <AlertCircle className="text-slate-300" size={26} />
+            <h2 className="text-2xl font-bold text-[#064E3B] tracking-tight flex items-center gap-3">
+              <AlertCircle className="text-[#64748B]" size={26} />
               Alert Review
             </h2>
-            <p className="text-slate-500 text-sm mt-1">
+            <p className="text-[#64748B] text-sm mt-1">
               {alerts.length} transactions pending risk assessment.
             </p>
           </div>
@@ -50,23 +51,26 @@ const Alerts: React.FC = () => {
             <motion.button
               whileHover={{ y: -1 }}
               whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-2 bg-slate-800 border border-slate-700 px-4 py-2 rounded-md text-sm text-slate-300 hover:bg-slate-700 transition"
+              className="flex items-center gap-2 bg-[#F0F7F4] border border-[#D1FAE5] px-4 py-2 rounded-md text-sm text-[#064E3B] hover:bg-[#E6F4EF] transition"
             >
-              <Filter size={16} /> Filter
+              <Filter size={16} />
+              Filter
             </motion.button>
 
             <motion.button
               whileHover={{ y: -1 }}
               whileTap={{ scale: 0.97 }}
-              className="bg-slate-200 hover:bg-white text-slate-900 text-sm font-semibold px-4 py-2 rounded-md transition shadow-sm"
+              className="bg-[#10B981] hover:bg-[#059669] text-white text-sm font-semibold px-4 py-2 rounded-md transition shadow-sm"
             >
               Bulk Action
             </motion.button>
           </div>
         </motion.header>
 
+        {/* Body */}
         <motion.div className="space-y-4" variants={item}>
-          <div className="grid grid-cols-3 gap-6 mb-6">
+          {/* KPI Strip */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
             {[
               {
                 label: 'Flagged',
@@ -85,18 +89,19 @@ const Alerts: React.FC = () => {
                 key={i}
                 variants={item}
                 whileHover={{ y: -2 }}
-                className="bg-slate-800 border border-slate-700 p-4 rounded-lg"
+                className="bg-[#FFFFFF] border border-[#D1FAE5] p-4 rounded-lg"
               >
-                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide block mb-1">
+                <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wide block mb-1">
                   {card.label}
                 </span>
-                <span className="text-2xl font-semibold text-slate-100">
+                <span className="text-2xl font-bold text-[#064E3B]">
                   {card.value}
                 </span>
               </motion.div>
             ))}
           </div>
 
+          {/* Table */}
           <motion.div variants={item}>
             <TransactionTable transactions={alerts} />
           </motion.div>
