@@ -47,7 +47,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </span>
         </div>
 
-        <nav className="px-4 py-4 space-y-1">
+        <nav className="px-4 py-4 space-y-1 flex-1">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
@@ -67,7 +67,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-[#D1FAE5]">
+        <div className="p-4 border-t border-[#D1FAE5] mt-auto">
           <div className="flex items-center gap-3 px-4 py-3 mb-4 bg-[#FFFFFF] rounded-xl border border-[#D1FAE5]">
             <div className="w-8 h-8 rounded-full bg-[#F0F7F4] flex items-center justify-center text-[10px] font-bold border border-[#D1FAE5] text-[#10B981]">
               {user?.role === 'Admin' ? 'AD' : 'AN'}
