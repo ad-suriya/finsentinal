@@ -1,9 +1,11 @@
-
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { Building2, ShieldCheck, TrendingUp, Users, ExternalLink } from 'lucide-react';
 
 const EntityView: React.FC = () => {
+  const navigate = useNavigate();
+
   const entities = [
     {
       name: "Bank A",
@@ -12,7 +14,8 @@ const EntityView: React.FC = () => {
       volume: "₹1.2M",
       incidents: 4,
       color: "bg-indigo-600",
-      description: "Primary institutional partner handling international SWIFT transfers."
+      description: "Primary institutional partner handling international SWIFT transfers.",
+      route: "/page-a"
     },
     {
       name: "Bank B",
@@ -21,7 +24,8 @@ const EntityView: React.FC = () => {
       volume: "₹840K",
       incidents: 12,
       color: "bg-emerald-600",
-      description: "Regional retail node facilitating high-frequency local peer-to-peer payments."
+      description: "Regional retail node facilitating high-frequency local peer-to-peer payments.",
+      route: "/page-b"
     }
   ];
 
@@ -35,7 +39,11 @@ const EntityView: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {entities.map((entity) => (
-            <div key={entity.name} className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-all flex flex-col">
+            <div 
+              key={entity.name} 
+              className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-all flex flex-col cursor-pointer"
+              onClick={() => navigate(entity.route)}
+            >
               <div className="p-8 space-y-6 flex-1">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-4">

@@ -9,6 +9,8 @@ import Alerts from './pages/Alerts';
 import TransactionDetail from './pages/TransactionDetail';
 import Simulation from './pages/Simulation';
 import EntityView from './pages/EntityView';
+import PageA from './pages/banka';
+import PageB from './pages/bankb';
 
 // Fix: Explicitly typing ProtectedRoute as React.FC with children to ensure JSX recognition of nested elements as props
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -60,6 +62,22 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <TransactionDetail />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/page-a" 
+            element={
+              <ProtectedRoute>
+                <PageA />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/page-b" 
+            element={
+              <ProtectedRoute>
+                <PageB />
               </ProtectedRoute>
             } 
           />
