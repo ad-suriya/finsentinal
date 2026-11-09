@@ -1,8 +1,9 @@
 
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { Transaction, Status } from '../types';
-import { SCENARIOS, EXPLANATIONS } from '../constants';
 import { TransactionsAPI } from '../services/api';
+import { RiskResult, scoreRisk } from '../services/backend';
+import { sha256Hex } from '../services/hashing';
 
 interface TransactionContextType {
   transactions: Transaction[];
@@ -14,6 +15,12 @@ interface TransactionContextType {
   resetDatabase: () => Promise<void>;
   simulationActive: boolean;
 }
+
+const STATUS_FROM_RISK: Record<RiskResult['status'], Status> = {
+  APPROVE: "APPROVED",
+  REVIEW: "FLAGGED",
+  BLOCKED: "BLOCKED"
+};
 
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
 
@@ -31,22 +38,22 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     refreshData();
   }, [refreshData]);
 
-  const generateRandomTx = (forcedStatus?: Status): Transaction => {
-    const id = `tx_${Math.random().toString(36).substr(2, 9)}`;
-    const hashId = Math.random().toString(36).substr(2, 8);
-    const amount = Math.floor(Math.random() * 200000) + 1000;
-    const status: Status = forcedStatus || (Math.random() > 0.8 ? "FLAGGED" : "APPROVED");
-    const score = status === "APPROVED" ? Math.random() * 0.3 : (status === "FLAGGED" ? 0.4 + Math.random() * 0.4 : 0.8 + Math.random() * 0.2);
-    
+  // Simulated traffic varies by random inputs. Its risk result always comes from the server's rules.
+  const generateTx = async (profile: "NORMAL" | "FRAUD"): Promise<Transaction> => {
+    const fraud = profile === "FRAUD";
+    const amount = fraud ? 20000 + Math.floor(Math.random() * 180000) : 1000 + Math.floor(Math.random() * 7000);
+    const risk = await scoreRisk({ amount, mcc: fraud ? "7995" : "5411", merchantId: fraud ? "Unknown Vendor" : "Local Grocery" });
+    const hashId = await sha256Hex(`simulated_user_${Math.floor(Math.random() * 50)}`);
+
     return {
-      id,
-      hashId,
+      id: `tx_${crypto.randomUUID()}`,
+      hashId: hashId.slice(0, 8),
       timestamp: new Date().toISOString(),
       amount,
-      score,
-      status,
-      scenario: SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)],
-      explanation: EXPLANATIONS[Math.floor(Math.random() * EXPLANATIONS.length)],
+      score: risk.score / 100,
+      status: STATUS_FROM_RISK[risk.status],
+      scenario: risk.rules[0] ?? "NORMAL_PATTERN",
+      explanation: risk.reasons.join(" "),
       entity: Math.random() > 0.5 ? "Bank A" : "Bank B"
     };
   };
@@ -55,21 +62,31 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     stopSimulation();
     setSimulationActive(true);
     intervalRef.current = window.setInterval(async () => {
-      const newTx = generateRandomTx("APPROVED");
-      await TransactionsAPI.create(newTx);
-      setTransactions(prev => [newTx, ...prev]);
+      try {
+        const newTx = await generateTx("NORMAL");
+        await TransactionsAPI.create(newTx);
+        setTransactions(prev => [newTx, ...prev]);
+      } catch (error) {
+        console.error('SIMULATION_ERROR:', error);
+        stopSimulation();
+      }
     }, 3000);
   };
 
   const startFraudBurst = async () => {
     setSimulationActive(true);
-    const bursts = [];
-    for (let i = 0; i < 3; i++) {
-      const newTx = generateRandomTx("BLOCKED");
-      bursts.push(newTx);
-      await TransactionsAPI.create(newTx);
+    try {
+      const bursts: Transaction[] = [];
+      for (let i = 0; i < 3; i++) {
+        const newTx = await generateTx("FRAUD");
+        bursts.push(newTx);
+        await TransactionsAPI.create(newTx);
+      }
+      setTransactions(prev => [...bursts, ...prev]);
+    } catch (error) {
+      console.error('SIMULATION_ERROR:', error);
+      setSimulationActive(false);
     }
-    setTransactions(prev => [...bursts, ...prev]);
   };
 
   const stopSimulation = () => {

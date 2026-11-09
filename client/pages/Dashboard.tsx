@@ -27,7 +27,7 @@ const Dashboard: React.FC = () => {
       const summary = await getSecurityBriefing(transactions);
       setBriefing(summary || '');
     } catch {
-      setBriefing('Unable to reach VVFNT Intelligence Core.');
+      setBriefing('Unable to reach Fin Sentinel Intelligence Core.');
     } finally {
       setLoadingBriefing(false);
     }

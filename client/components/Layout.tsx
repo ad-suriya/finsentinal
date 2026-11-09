@@ -43,7 +43,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <ShieldCheck size={24} className="text-white" />
           </div>
           <span className="text-xl font-bold tracking-tight text-[#064E3B]">
-            VVFNT_<span className="text-[#10B981]">02</span>
+            FIN<span className="text-[#10B981]">SENTINEL</span>
           </span>
         </div>
 

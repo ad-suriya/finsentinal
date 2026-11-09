@@ -2,7 +2,7 @@
 import { Transaction } from '../types';
 import { INITIAL_MOCK_DATA } from '../constants';
 
-const DB_KEY = 'vvfnt_database_v1';
+const DB_KEY = 'fin_sentinel_database_v1';
 
 export const db = {
   getTransactions: (): Transaction[] => {

@@ -1,37 +1,103 @@
 // server.js
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
+
 const express = require('express');
 const cors = require('cors');
+const { rateLimit } = require('express-rate-limit');
 const { WebSocketServer } = require('ws');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+const { generate, generateAnalysis, generateBriefing, generateChatReply, isAiConfigured } = require('./lib/ai');
+const { screenWithFraudLabs } = require('./lib/fraudlabs');
+const { sha256Hex } = require('./lib/hashing');
+const { scoreTransaction } = require('./lib/scoring');
+const { createSignalStore } = require('./lib/signals');
+const {
+  MAX_MESSAGE_LENGTH,
+  validateAnalysis,
+  validateBriefing,
+  validateChat,
+  validateRiskInput,
+  validateScreening,
+  validateSignal,
+} = require('./lib/validation');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const MAX_TRANSACTION_PAGE = 200;
+const SEVERITIES = ['low', 'medium', 'high', 'critical'];
+const WS_MESSAGES_PER_MINUTE = 10;
+
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+// cors() only withholds headers, so requests from other sites are rejected here.
+function rejectDisallowedOrigin(req, res, next) {
+  const { origin } = req.headers;
+  if (origin && !allowedOrigins.includes(origin)) {
+    return res.status(403).json({ success: false, error: 'Origin not allowed' });
+  }
+  next();
+}
+
+const limiter = (limit) =>
+  rateLimit({
+    windowMs: 60 * 1000,
+    limit,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, error: 'Too many requests' },
+  });
 
 // Middleware
-app.use(cors());
-app.use(express.json());
+app.use(rejectDisallowedOrigin);
+app.use(cors({ origin: allowedOrigins }));
+app.use(express.json({ limit: '100kb' }));
+app.use('/v1/ai', limiter(20));
+app.use('/v1', limiter(300));
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const signalStore = createSignalStore();
 
 // In-memory data store
 let transactions = [];
 let entities = [];
 let simulationRunning = false;
 
+function sendValidationError(res, error) {
+  return res.status(400).json({ success: false, error });
+}
+
+// Handles the shared validate, check configuration, generate, respond flow of the AI routes.
+function aiRoute(validate, run, errorMessage) {
+  return async (req, res) => {
+    const { value, error } = validate(req);
+    if (error) return sendValidationError(res, error);
+    if (!isAiConfigured()) {
+      return res.status(503).json({ success: false, error: 'AI service is not configured' });
+    }
+    try {
+      res.json({ success: true, ...(await run(value)), generatedAt: new Date().toISOString() });
+    } catch (err) {
+      console.error(`${errorMessage}:`, err.message);
+      res.status(502).json({ success: false, error: errorMessage });
+    }
+  };
+}
+
 // Helper: Generate mock transaction
 function generateTransaction() {
   const types = ['transfer', 'login', 'api_call', 'data_access', 'file_upload'];
-  const severities = ['low', 'medium', 'high', 'critical'];
   const statuses = ['success', 'failed', 'pending', 'blocked'];
-  
+
   return {
     id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     timestamp: new Date().toISOString(),
     type: types[Math.floor(Math.random() * types.length)],
     source: `10.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
     destination: `10.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
-    severity: severities[Math.floor(Math.random() * severities.length)],
+    severity: SEVERITIES[Math.floor(Math.random() * SEVERITIES.length)],
     status: statuses[Math.floor(Math.random() * statuses.length)],
     bytes: Math.floor(Math.random() * 1000000),
     user: `user_${Math.floor(Math.random() * 100)}`,
@@ -88,23 +154,23 @@ let simulationInterval = null;
 
 function startSimulation() {
   if (simulationInterval) return;
-  
+
   simulationInterval = setInterval(() => {
     const newTx = generateTransaction();
     transactions.unshift(newTx);
-    
+
     // Keep only last 1000 transactions
     if (transactions.length > 1000) {
       transactions = transactions.slice(0, 1000);
     }
-    
+
     // Update entities
     entities = generateEntities();
-    
+
     // Broadcast to WebSocket clients
     broadcastToClients({ type: 'transaction', data: newTx });
   }, 2000); // Generate every 2 seconds
-  
+
   simulationRunning = true;
 }
 
@@ -120,16 +186,16 @@ function stopSimulation() {
 
 // GET /v1/transactions - Fetch live transaction feed
 app.get('/v1/transactions', (req, res) => {
-  const limit = parseInt(req.query.limit) || 50;
-  const offset = parseInt(req.query.offset) || 0;
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), MAX_TRANSACTION_PAGE);
+  const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
   const severity = req.query.severity;
-  
-  let filtered = transactions;
-  
-  if (severity) {
-    filtered = transactions.filter(tx => tx.severity === severity);
+
+  if (severity !== undefined && !SEVERITIES.includes(severity)) {
+    return sendValidationError(res, `severity must be one of ${SEVERITIES.join(', ')}`);
   }
-  
+
+  const filtered = severity ? transactions.filter(tx => tx.severity === severity) : transactions;
+
   res.json({
     success: true,
     data: filtered.slice(offset, offset + limit),
@@ -142,14 +208,14 @@ app.get('/v1/transactions', (req, res) => {
 // GET /v1/transactions/:id - Fetch detail for specific hash
 app.get('/v1/transactions/:id', (req, res) => {
   const transaction = transactions.find(tx => tx.id === req.params.id);
-  
+
   if (!transaction) {
     return res.status(404).json({
       success: false,
       error: 'Transaction not found'
     });
   }
-  
+
   // Add detailed metadata
   const detailed = {
     ...transaction,
@@ -159,14 +225,14 @@ app.get('/v1/transactions/:id', (req, res) => {
       duration: Math.floor(Math.random() * 5000),
       packets: Math.floor(Math.random() * 1000),
       flags: ['SYN', 'ACK'],
-      hash: `sha256:${Math.random().toString(36).substr(2, 32)}`
+      hash: `sha256:${sha256Hex(JSON.stringify(transaction))}`
     },
     relatedTransactions: transactions
       .filter(tx => tx.id !== req.params.id)
       .slice(0, 5)
       .map(tx => tx.id)
   };
-  
+
   res.json({
     success: true,
     data: detailed
@@ -175,8 +241,8 @@ app.get('/v1/transactions/:id', (req, res) => {
 
 // POST /v1/simulation/control - Start/Stop traffic generators
 app.post('/v1/simulation/control', (req, res) => {
-  const { action } = req.body;
-  
+  const { action } = req.body ?? {};
+
   if (action === 'start') {
     startSimulation();
     res.json({
@@ -208,108 +274,53 @@ app.get('/v1/entities', (req, res) => {
   });
 });
 
-// POST /v1/ai/briefing - Generate Executive Security Summary
-app.post('/v1/ai/briefing', async (req, res) => {
-  try {
-    const recentTx = transactions.slice(0, 20);
-    const criticalCount = recentTx.filter(tx => tx.severity === 'critical').length;
-    const highCount = recentTx.filter(tx => tx.severity === 'high').length;
-    const blockedCount = recentTx.filter(tx => tx.status === 'blocked').length;
-    
-    const prompt = `Generate an executive security briefing based on this data:
-    
-Recent Activity:
-- Total Transactions: ${recentTx.length}
-- Critical Severity: ${criticalCount}
-- High Severity: ${highCount}
-- Blocked: ${blockedCount}
-
-Top Transaction Types: ${[...new Set(recentTx.map(tx => tx.type))].join(', ')}
-
-Entities Status:
-${entities.map(e => `- ${e.name}: Trust Score ${e.trustScore}%, Risk: ${e.riskLevel}`).join('\n')}
-
-Provide a concise executive summary with:
-1. Overall security posture
-2. Key concerns
-3. Recommended actions`;
-
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    
-    res.json({
-      success: true,
-      briefing: text,
-      generatedAt: new Date().toISOString(),
-      stats: {
-        totalTransactions: recentTx.length,
-        criticalCount,
-        highCount,
-        blockedCount
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Failed to generate briefing',
-      message: error.message
-    });
-  }
+// POST /v1/risk/score - Score a transaction with the local rules only
+app.post('/v1/risk/score', (req, res) => {
+  const { value, error } = validateRiskInput(req.body);
+  if (error) return sendValidationError(res, error);
+  res.json({ success: true, data: scoreTransaction(value) });
 });
+
+// POST /v1/fraud/screen - Screen with FraudLabs Pro, falling back to the local rules
+app.post('/v1/fraud/screen', async (req, res) => {
+  const { value, error } = validateScreening(req.body);
+  if (error) return sendValidationError(res, error);
+  const result = await screenWithFraudLabs(value, process.env.FRAUDLABS_API_KEY);
+  res.json({ success: true, data: result ?? scoreTransaction(value) });
+});
+
+// POST /v1/signals - Share a hashed risk signal and get the cross-bank correlation
+app.post('/v1/signals', (req, res) => {
+  const { value, error } = validateSignal(req.body);
+  if (error) return sendValidationError(res, error);
+  res.json({ success: true, data: signalStore.record(value) });
+});
+
+// GET /v1/signals/correlated - List identities with a cross-bank risk pattern
+app.get('/v1/signals/correlated', (req, res) => {
+  res.json({ success: true, data: signalStore.listCorrelated() });
+});
+
+// POST /v1/ai/briefing - Generate Executive Security Summary
+app.post('/v1/ai/briefing', aiRoute(
+  (req) => validateBriefing(req.body),
+  async ({ transactions: recent }) => ({ briefing: await generateBriefing(recent) }),
+  'Failed to generate briefing'
+));
 
 // POST /v1/ai/analyze/:id - Perform forensic deep-dive
-app.post('/v1/ai/analyze/:id', async (req, res) => {
-  try {
-    const transaction = transactions.find(tx => tx.id === req.params.id);
-    
-    if (!transaction) {
-      return res.status(404).json({
-        success: false,
-        error: 'Transaction not found'
-      });
-    }
-    
-    const prompt = `Perform a detailed forensic analysis of this security transaction:
+app.post('/v1/ai/analyze/:id', aiRoute(
+  (req) => validateAnalysis(req.body, req.params.id),
+  async ({ transaction }) => ({ analysis: await generateAnalysis(transaction) }),
+  'Failed to perform analysis'
+));
 
-Transaction ID: ${transaction.id}
-Type: ${transaction.type}
-Timestamp: ${transaction.timestamp}
-Source: ${transaction.source}
-Destination: ${transaction.destination}
-Severity: ${transaction.severity}
-Status: ${transaction.status}
-User: ${transaction.user}
-Bytes Transferred: ${transaction.bytes}
-
-Provide:
-1. Threat assessment
-2. Potential attack vectors
-3. Indicators of compromise (IoCs)
-4. Recommended mitigation steps
-5. Related patterns to watch for`;
-
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    
-    res.json({
-      success: true,
-      transactionId: req.params.id,
-      analysis: text,
-      analyzedAt: new Date().toISOString(),
-      transaction
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Failed to perform analysis',
-      message: error.message
-    });
-  }
-});
+// POST /v1/ai/chat - Answer a question from the dashboard assistant
+app.post('/v1/ai/chat', aiRoute(
+  (req) => validateChat(req.body),
+  async (chat) => ({ reply: await generateChatReply(chat) }),
+  'Failed to generate reply'
+));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -321,15 +332,6 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Start server
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Security Monitoring Backend running on port ${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-});
-
-// WebSocket Server for /v1/ai/chat
-const wss = new WebSocketServer({ server, path: '/v1/ai/chat' });
-
 const clients = new Set();
 
 function broadcastToClients(message) {
@@ -340,22 +342,37 @@ function broadcastToClients(message) {
   });
 }
 
-wss.on('connection', (ws) => {
+function handleConnection(ws) {
   console.log('🔌 WebSocket client connected');
   clients.add(ws);
-  
+  let windowStart = Date.now();
+  let messagesInWindow = 0;
+
+  const sendError = (error) => ws.send(JSON.stringify({ type: 'error', error, timestamp: new Date().toISOString() }));
+
   // Send welcome message
   ws.send(JSON.stringify({
     type: 'system',
-    message: 'Connected to Security Command Assistant. How can I help you?',
+    message: 'Connected to Fin Sentinel Assistant. How can I help you?',
     timestamp: new Date().toISOString()
   }));
-  
+
   ws.on('message', async (data) => {
+    if (Date.now() - windowStart > 60 * 1000) {
+      windowStart = Date.now();
+      messagesInWindow = 0;
+    }
+    if (++messagesInWindow > WS_MESSAGES_PER_MINUTE) return sendError('Too many requests');
+
     try {
       const message = JSON.parse(data.toString());
-      
+
       if (message.type === 'query') {
+        if (typeof message.query !== 'string' || !message.query || message.query.length > MAX_MESSAGE_LENGTH) {
+          return sendError('query must be 1 to 2000 characters');
+        }
+        if (!isAiConfigured()) return sendError('AI service is not configured');
+
         // Build context from current system state
         const context = `Current System Status:
 - Active Transactions: ${transactions.length}
@@ -364,7 +381,7 @@ wss.on('connection', (ws) => {
 - Entities Monitored: ${entities.length}
 
 Recent Activity:
-${transactions.slice(0, 5).map(tx => 
+${transactions.slice(0, 5).map(tx =>
   `- ${tx.type} from ${tx.source} (${tx.severity})`
 ).join('\n')}
 
@@ -372,11 +389,8 @@ User Query: ${message.query}
 
 Provide a helpful response as a security command assistant.`;
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-        const result = await model.generateContent(context);
-        const response = await result.response;
-        const text = response.text();
-        
+        const text = await generate(context);
+
         ws.send(JSON.stringify({
           type: 'response',
           query: message.query,
@@ -385,32 +399,50 @@ Provide a helpful response as a security command assistant.`;
         }));
       }
     } catch (error) {
-      ws.send(JSON.stringify({
-        type: 'error',
-        error: 'Failed to process query',
-        message: error.message,
-        timestamp: new Date().toISOString()
-      }));
+      console.error('WebSocket query failed:', error.message);
+      sendError('Failed to process query');
     }
   });
-  
+
   ws.on('close', () => {
     console.log('🔌 WebSocket client disconnected');
     clients.delete(ws);
   });
-  
+
   ws.on('error', (error) => {
     console.error('WebSocket error:', error);
     clients.delete(ws);
   });
-});
+}
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  stopSimulation();
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
+function startServer() {
+  const server = app.listen(PORT, () => {
+    console.log(`🚀 Fin Sentinel backend running on port ${PORT}`);
+    console.log(`📊 Health check: http://localhost:${PORT}/health`);
   });
-});
+
+  // WebSocket Server for /v1/ai/chat. Browsers always send Origin, so it is required here.
+  const wss = new WebSocketServer({
+    server,
+    path: '/v1/ai/chat',
+    maxPayload: 16 * 1024,
+    verifyClient: ({ origin }) => allowedOrigins.includes(origin),
+  });
+  wss.on('connection', handleConnection);
+
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    stopSimulation();
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
+  });
+}
+
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = { app };

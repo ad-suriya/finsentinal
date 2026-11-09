@@ -58,19 +58,3 @@ export const INITIAL_MOCK_DATA: Transaction[] = [
     entity: "Bank A"
   }
 ];
-
-export const SCENARIOS = [
-  "HIGH_VALUE",
-  "VELOCITY_BURST",
-  "STRUCTURING",
-  "GEO_ANOMALY",
-  "DORMANT_REACTIVATION"
-];
-
-export const EXPLANATIONS = [
-  "Transaction exceeds historical limits.",
-  "Rapid bursts detected from multiple endpoints.",
-  "Possible money laundering pattern.",
-  "Account accessed from unauthorized region.",
-  "Large transfer following long period of inactivity."
-];

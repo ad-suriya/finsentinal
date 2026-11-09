@@ -1,0 +1,10 @@
+node_modules/
+dist/
+
+# Secrets. Commit .env.example files only.
+.env
+.env.*
+!.env.example
+
+.DS_Store
+*.log

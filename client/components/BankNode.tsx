@@ -5,6 +5,8 @@ import {
   ShieldAlert, CheckCircle
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { reportSignal, screenFraud, SignalCorrelation } from '../services/backend';
+import { sha256Hex } from '../services/hashing';
 
 // --- TYPES ---
 export enum TransactionStatus {
@@ -24,6 +26,7 @@ export interface RiskAssessment {
   score: number;
   status: TransactionStatus;
   scenario: string;
+  reasons: string[];
 }
 
 export interface BankEntity {
@@ -42,19 +45,10 @@ export interface Transaction {
   details: TransactionDetails;
   risk: RiskAssessment;
   entity: BankEntity;
-}
-
-export interface IngestPayload {
-  meta: {
-    request_id: string;
-    generated_at: string;
-    total: number;
-  };
-  data: Transaction[];
+  correlation: SignalCorrelation;
 }
 
 // --- SERVICES & SIMULATION ---
-const FRAUDLABS_API_KEY = 'REMOVED_KEY';
 const CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Kolkata', 'Pune', 'Hyderabad', 'Ahmedabad'];
 const CHANNELS = ['POS', 'ATM', 'ONLINE', 'MOBILE'] as const;
 const PAYMENT_TYPES = ['CARD', 'UPI', 'TRANSFER'] as const;
@@ -62,71 +56,34 @@ const MERCHANTS = ['Amazon India', 'Flipkart', 'Zomato', 'Uber', 'Local Grocery'
 const USERS = ['user_akash@email.com', 'user_priya@email.com', 'user_rahul@email.com', 'user_sneha@email.com', 'wallet_9876543210'];
 const MCCS = ['5411', '5812', '5732', '4121', '7995', '5999'];
 
-const generateSha256 = async (input: string): Promise<string> => {
-  const msgBuffer = new TextEncoder().encode(input);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-};
+const pick = <T,>(items: readonly T[]): T => items[Math.floor(Math.random() * items.length)];
 
-const checkFraudLabsPro = async (
-  amount: number, mcc: string, city: string, email: string, ip: string
-): Promise<{ score: number; status: TransactionStatus; scenario: string; summary: string }> => {
-  try {
-    const params = new URLSearchParams({
-      key: FRAUDLABS_API_KEY, format: 'json', email, ip, 
-      amount: amount.toString(), currency: 'INR', bill_city: city, bill_country: 'IN'
-    });
-    const response = await fetch(`https://api.fraudlabspro.com/v1/order/screen?${params.toString()}`, {
-      method: 'GET', signal: AbortSignal.timeout(2000)
-    });
-    if (response.ok) {
-      const data = await response.json();
-      const apiScore = parseInt(data.fraudlabspro_score || '0', 10);
-      let status = TransactionStatus.APPROVE;
-      if (data.fraudlabspro_status === 'REJECT') status = TransactionStatus.BLOCKED;
-      else if (data.fraudlabspro_status === 'REVIEW') status = TransactionStatus.REVIEW;
-      return {
-        score: apiScore,
-        status,
-        scenario: 'REAL_API_VERIFIED',
-        summary: data.fraudlabspro_message || 'Verified by FraudLabs Pro'
-      };
-    }
-  } catch (e) {}
-
-  // Local Fallback
-  let score = Math.floor(Math.random() * 15);
-  if (amount > 10000) score += 40;
-  if (mcc === '7995') score += 50;
-  score = Math.min(100, score);
-  let status = TransactionStatus.APPROVE;
-  if (score > 80) status = TransactionStatus.BLOCKED;
-  else if (score > 50) status = TransactionStatus.REVIEW;
-  return { score, status, scenario: 'LOCAL_HEURISTICS', summary: 'Local simulation fallback' };
-};
-
-const generateTransaction = async (): Promise<Transaction> => {
+const generateTransaction = async (bank: BankEntity): Promise<Transaction> => {
   const amount = Math.floor(Math.random() * 15000) + 50;
-  const mcc = MCCS[Math.floor(Math.random() * MCCS.length)];
-  const city = CITIES[Math.floor(Math.random() * CITIES.length)];
-  const userId = USERS[Math.floor(Math.random() * USERS.length)];
+  const mcc = pick(MCCS);
+  const city = pick(CITIES);
+  const userId = pick(USERS);
+  const merchantId = pick(MERCHANTS);
   const ip = `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.1.1`;
-  const fraud = await checkFraudLabsPro(amount, mcc, city, userId, ip);
-  const hashedUserId = await generateSha256(userId);
+  const risk = await screenFraud({ amount, mcc, merchantId, city, email: userId, ip });
+  const hashedUserId = await sha256Hex(userId);
+  const status = risk.status as TransactionStatus;
+  const correlation = await reportSignal({
+    bankId: bank.id, hashedUserId, score: risk.score, status: risk.status,
+  });
   return {
     id: crypto.randomUUID(),
-    userId, hashedUserId,
-    merchantId: MERCHANTS[Math.floor(Math.random() * MERCHANTS.length)],
+    userId, hashedUserId, merchantId,
     amount, currency: 'INR', timestamp: new Date().toISOString(),
-    details: { 
-      mcc, 
-      channel: CHANNELS[Math.floor(Math.random() * CHANNELS.length)], 
-      location_city: city, 
-      payment_type: PAYMENT_TYPES[Math.floor(Math.random() * PAYMENT_TYPES.length)] 
+    details: {
+      mcc,
+      channel: pick(CHANNELS),
+      location_city: city,
+      payment_type: pick(PAYMENT_TYPES)
     },
-    risk: { score: fraud.score, status: fraud.status, scenario: fraud.scenario },
-    entity: { id: 'bank_01', name: 'Sentinel Local Node' }
+    risk: { score: risk.score, status, scenario: risk.scenario, reasons: risk.reasons },
+    entity: bank,
+    correlation
   };
 };
 
@@ -224,30 +181,12 @@ interface TransactionDetailProps {
 const TransactionDetail: React.FC<TransactionDetailProps> = ({ transaction }) => {
   const [activeTab, setActiveTab] = useState<'visual' | 'payload' | 'raw'>('visual');
   const [isDevMode, setIsDevMode] = useState(false);
-  const [aiAnalysis, setAiAnalysis] = useState<string>('');
-
-  useEffect(() => {
-    setAiAnalysis('');
-    if (transaction && (transaction.risk.score > 50)) {
-      handleAnalyze();
-    }
-  }, [transaction]);
 
   useEffect(() => {
     if (!isDevMode && activeTab === 'raw') {
       setActiveTab('visual');
     }
   }, [isDevMode, activeTab]);
-
-  const handleAnalyze = async () => {
-    if (!transaction) return;
-    const analysis = `AI Analysis: This transaction from ${transaction.merchantId} via ${transaction.details.channel} shows ${
-      transaction.risk.score > 80 ? 'multiple high-risk indicators including unusual amount patterns' :
-      transaction.risk.score > 50 ? 'moderate risk factors requiring further verification' :
-      'normal behavioral patterns consistent with user history'
-    }. ${transaction.risk.scenario === 'REAL_API_VERIFIED' ? 'Verified by external fraud detection API.' : 'Analyzed using local heuristics.'}`;
-    setAiAnalysis(analysis);
-  };
 
   if (!transaction) {
     return (
@@ -259,26 +198,11 @@ const TransactionDetail: React.FC<TransactionDetailProps> = ({ transaction }) =>
     );
   }
 
-  const hashedPayload: IngestPayload['data'][0] = {
-    id: transaction.id,
+  const sharedSignal = {
+    bankId: transaction.entity.id,
     hashedUserId: transaction.hashedUserId,
-    userId: transaction.userId,
-    merchantId: transaction.merchantId,
-    amount: transaction.amount,
-    currency: transaction.currency,
-    timestamp: transaction.timestamp,
-    details: transaction.details,
-    risk: transaction.risk,
-    entity: transaction.entity
-  };
-
-  const payloadWrapper: IngestPayload = {
-    meta: {
-      request_id: `req_${Math.random().toString(36).substring(7)}`,
-      generated_at: new Date().toISOString(),
-      total: 1
-    },
-    data: [hashedPayload]
+    score: transaction.risk.score,
+    status: transaction.risk.status
   };
 
   return (
@@ -396,36 +320,21 @@ const TransactionDetail: React.FC<TransactionDetailProps> = ({ transaction }) =>
             </div>
 
             <div className="bg-gradient-to-br from-[#F0F7F4] to-white rounded-lg p-5 border border-[#D1FAE5]">
-                <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-sm font-bold text-[#10B981] uppercase tracking-wider flex items-center gap-2">
-                        <BrainCircuit className="w-4 h-4" />
-                        AI Fraud Analyst
-                    </h3>
-                    {transaction.risk.score > 50 && (
-                        <button 
-                            onClick={handleAnalyze}
-                            className="text-xs text-[#10B981] hover:text-[#059669] underline"
-                        >
-                            Refresh Analysis
-                        </button>
-                    )}
-                </div>
-                
-                {transaction.risk.score <= 50 ? (
-                    <p className="text-[#94A3B8] text-sm italic">Transaction is low risk. AI analysis typically reserved for suspicious activity.</p>
-                ) : aiAnalysis ? (
-                    <p className="text-[#64748B] text-sm leading-relaxed border-l-2 border-[#10B981] pl-4">
-                        {aiAnalysis}
-                    </p>
-                ) : (
-                    <div className="animate-pulse space-y-2">
-                        <div className="h-4 bg-[#D1FAE5] rounded w-3/4"></div>
-                        <div className="h-4 bg-[#D1FAE5] rounded w-1/2"></div>
-                    </div>
+                <h3 className="text-sm font-bold text-[#10B981] uppercase tracking-wider flex items-center gap-2 mb-3">
+                    <BrainCircuit className="w-4 h-4" />
+                    Risk Explanation
+                </h3>
+                <ul className="text-[#64748B] text-sm leading-relaxed border-l-2 border-[#10B981] pl-4 space-y-1">
+                    {transaction.risk.reasons.map(reason => <li key={reason}>{reason}</li>)}
+                </ul>
+                {transaction.correlation && (
+                  <p className={`mt-3 text-sm ${transaction.correlation.crossEntityRisk ? 'text-[#EF4444] font-bold' : 'text-[#94A3B8]'}`}>
+                    Cross-bank: {transaction.correlation.reason} Aggregate score {transaction.correlation.aggregateScore}/100.
+                  </p>
                 )}
                 <div className="mt-3 text-xs text-[#94A3B8]">
                   Risk Score: <span className={`font-bold ${
-                    transaction.risk.score > 80 ? 'text-[#EF4444]' : 
+                    transaction.risk.score > 80 ? 'text-[#EF4444]' :
                     transaction.risk.score > 50 ? 'text-amber-500' : 'text-[#10B981]'
                   }`}>{transaction.risk.score}/100</span> • Method: {transaction.risk.scenario}
                 </div>
@@ -436,11 +345,11 @@ const TransactionDetail: React.FC<TransactionDetailProps> = ({ transaction }) =>
         {activeTab === 'payload' && (
           <div className="relative h-full">
             <pre className="font-mono text-xs text-[#10B981] bg-[#F0F7F4] p-4 rounded-lg border border-[#D1FAE5] h-full overflow-auto shadow-inner">
-              {JSON.stringify(payloadWrapper, null, 2)}
+              {JSON.stringify(sharedSignal, null, 2)}
             </pre>
             <div className="absolute top-2 right-2 flex flex-col items-end">
               <span className="text-[10px] text-[#94A3B8] uppercase font-bold tracking-wider mb-1">Status</span>
-              <span className="text-xs text-[#10B981] font-mono">POST /api/ingest [SIMULATED]</span>
+              <span className="text-xs text-[#10B981] font-mono">POST /v1/signals</span>
             </div>
           </div>
         )}
@@ -569,17 +478,24 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onSelec
 };
 
 // --- APP ROOT ---
-const BankA: React.FC = () => {
+const BankNode: React.FC<BankEntity> = ({ id, name }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [speed, setSpeed] = useState(2000);
+  const [error, setError] = useState('');
 
   const addTx = useCallback(async () => {
-    const tx = await generateTransaction();
-    setTransactions(prev => [...prev, tx].slice(-40));
-    if (!selectedTx) setSelectedTx(tx);
-  }, [selectedTx]);
+    try {
+      const tx = await generateTransaction({ id, name });
+      setError('');
+      setTransactions(prev => [...prev, tx].slice(-40));
+      if (!selectedTx) setSelectedTx(tx);
+    } catch {
+      setError('Cannot reach the Fin Sentinel server. Stream stopped.');
+      setIsRunning(false);
+    }
+  }, [selectedTx, id, name]);
 
   useEffect(() => {
     let timer: any;
@@ -599,7 +515,7 @@ const BankA: React.FC = () => {
           </h1>
         </div>
         <p className="text-[#94A3B8] text-sm">
-          Local Bank Entity Simulation Node • Region: India (IN-WEST-1) • Privacy-First Architecture
+          {name} Simulation Node • Region: India (IN-WEST-1) • Privacy-First Architecture
         </p>
       </header>
 
@@ -639,6 +555,10 @@ const BankA: React.FC = () => {
         </div>
       </div>
 
+      {error && (
+        <div className="mb-6 p-4 bg-[#FEF2F2] border border-[#FCA5A5] rounded-lg text-sm text-[#EF4444]">{error}</div>
+      )}
+
       <StatsOverview transactions={transactions} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -658,10 +578,10 @@ const BankA: React.FC = () => {
       <RiskChart transactions={transactions} />
       
       <div className="mt-6 text-center text-xs text-[#94A3B8]">
-        <p>Simulation Environment • Using {FRAUDLABS_API_KEY ? 'FraudLabs Pro API + ' : ''}Local Heuristics • All PII is hashed locally before transmission</p>
+        <p>Simulation Environment • Simulated customers only • Only hashed identifiers and risk scores are shared between banks</p>
       </div>
     </div>
   );
 };
 
-export default BankA;
+export default BankNode;

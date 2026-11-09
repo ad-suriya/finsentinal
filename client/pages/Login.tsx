@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, Lock, Mail, Users } from 'lucide-react';
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('admin@vvfnt.tech');
+  const [email, setEmail] = useState('admin@finsentinel.demo');
   const [password, setPassword] = useState('********');
   const [role, setRole] = useState<'Admin' | 'Analyst'>('Admin');
   const navigate = useNavigate();
@@ -12,7 +12,7 @@ const Login: React.FC = () => {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     // Dummy Auth logic
-    localStorage.setItem('token', 'dummy-jwt-token-vvfnt');
+    localStorage.setItem('token', 'dummy-demo-token');
     localStorage.setItem('user', JSON.stringify({ email, role }));
     navigate('/dashboard');
   };
@@ -24,7 +24,7 @@ const Login: React.FC = () => {
           <div className="bg-primary p-4 rounded-2xl mb-4 shadow-2xl shadow-primary/20">
             <ShieldCheck size={48} className="text-white" />
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">VVFNT_<span className="text-primary">02</span></h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">FIN<span className="text-primary">SENTINEL</span></h1>
           <p className="text-muted mt-2 text-sm font-medium uppercase tracking-[0.2em]">Anti-Fraud Infrastructure</p>
         </div>
 

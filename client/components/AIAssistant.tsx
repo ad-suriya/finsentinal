@@ -1,17 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bot, X, Send, Sparkles, ChevronDown } from 'lucide-react';
-import { createAIChat } from '../services/aiService';
+import { sendChatMessage } from '../services/aiService';
 import { useTransactions } from '../context/TransactionContext';
-
-const sanitizeTxForChat = (txs: any[]) => {
-  return txs.map(tx => ({
-    id: tx.hashId,
-    amount: tx.amount,
-    status: tx.status,
-    entity: tx.entity,
-    riskScore: tx.score
-  }));
-};
 
 const AIAssistant: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -19,15 +9,13 @@ const AIAssistant: React.FC = () => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const { transactions } = useTransactions();
-  const chatRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isOpen && !chatRef.current) {
-      chatRef.current = createAIChat();
-      setMessages([{ role: 'ai', text: 'VVFNT Intelligence Core online. How can I assist your investigation today?' }]);
+    if (isOpen && messages.length === 0) {
+      setMessages([{ role: 'ai', text: 'Fin Sentinel Intelligence Core online. How can I assist your investigation today?' }]);
     }
-  }, [isOpen]);
+  }, [isOpen, messages.length]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -45,10 +33,8 @@ const AIAssistant: React.FC = () => {
     setIsTyping(true);
 
     try {
-      const safeContext = JSON.stringify(sanitizeTxForChat(transactions.slice(0, 5)));
-      const contextPrompt = `[SYSTEM CONTEXT: Current Transactions: ${safeContext}] ${userText}`;
-      const result = await chatRef.current.sendMessage({ message: contextPrompt });
-      setMessages(prev => [...prev, { role: 'ai', text: result.text || 'No response from core.' }]);
+      const reply = await sendChatMessage(userText, messages, transactions);
+      setMessages(prev => [...prev, { role: 'ai', text: reply || 'No response from core.' }]);
     } catch {
       setMessages(prev => [...prev, { role: 'ai', text: 'Error: Connection to Intelligence Core lost.' }]);
     } finally {

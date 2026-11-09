@@ -2,7 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
-// Enterprise VVFNT_02 Backend Configuration
+// Fin Sentinel Firebase configuration. The project ID is the existing Firebase project name.
 const firebaseConfig = {
   apiKey: "AIzaSyDd7nLiwQepv1Im1YPcJ83GiR_4ZD_KDV4",
   authDomain: "privacyguard-a171e.firebaseapp.com",
